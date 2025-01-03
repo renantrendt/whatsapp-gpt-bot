@@ -50,17 +50,15 @@ def obter_resposta_chatgpt(pergunta):
 def enviar_mensagem(driver, mensagem):
     """Envia uma mensagem no WhatsApp"""
     try:
-        # Divide a mensagem em linhas para evitar problemas com mensagens muito longas
-        linhas = mensagem.split('\n')
-        
         # Lista de seletores para tentar encontrar o campo de texto
         input_selectors = [
             'div[data-testid="conversation-compose-box-input"]',
-            'div[contenteditable="true"]',
-            'div[title="Mensagem"]',
+            'div[contenteditable="true"][spellcheck="true"]',
+            'div[title="Digite uma mensagem"]',
             'div[data-tab="10"]',
             'div[role="textbox"]',
-            'footer div[contenteditable="true"]'
+            'p[class="selectable-text copyable-text"]',
+            'div[class="selectable-text copyable-text"]'
         ]
         
         campo_texto = None
@@ -80,6 +78,13 @@ def enviar_mensagem(driver, mensagem):
         # Clica no campo e espera um pouco
         campo_texto.click()
         time.sleep(1)
+        
+        # Limpa o campo de texto antes de enviar a nova mensagem
+        campo_texto.clear()
+        time.sleep(0.5)
+        
+        # Divide a mensagem em linhas para enviar
+        linhas = mensagem.split('\n')
         
         # Envia cada linha da mensagem
         for linha in linhas:
@@ -101,8 +106,8 @@ def enviar_mensagem(driver, mensagem):
         print(f"Erro ao enviar mensagem: {str(e)}")
         raise e
 
-def obter_ultimas_mensagens(driver, num_mensagens=5):
-    """Obtém as últimas mensagens do chat"""
+def obter_ultimas_mensagens(driver, num_mensagens=1):
+    """Obtém a última mensagem do chat"""
     try:
         # Lista de seletores para encontrar mensagens
         message_selectors = [
@@ -123,28 +128,23 @@ def obter_ultimas_mensagens(driver, num_mensagens=5):
             except:
                 continue
         
-        # Se encontrou mensagens, pega as últimas
+        # Se encontrou mensagens, pega apenas a última
         if mensagens:
-            ultimas_msgs = mensagens[-num_mensagens:]
-            resultado = []
-            
-            for msg in ultimas_msgs:
+            ultima_msg = mensagens[-1]
+            try:
+                texto = ultima_msg.text.strip()
+                # Tenta pegar o timestamp do elemento pai
                 try:
-                    texto = msg.text.strip()
-                    # Tenta pegar o timestamp do elemento pai
-                    try:
-                        pai = msg.find_element(By.XPATH, './ancestor::div[@data-pre-plain-text]')
-                        data = pai.get_attribute('data-pre-plain-text')
-                    except:
-                        data = ""
-                    
-                    if texto:
-                        print(f"Mensagem encontrada: {texto}")
-                        resultado.append((texto, data))
+                    pai = ultima_msg.find_element(By.XPATH, './ancestor::div[@data-pre-plain-text]')
+                    data = pai.get_attribute('data-pre-plain-text')
                 except:
-                    continue
-            
-            return resultado
+                    data = ""
+                
+                if texto:
+                    print(f"Última mensagem encontrada: {texto}")
+                    return [(texto, data)]
+            except:
+                pass
         
         return []
     except Exception as e:
@@ -161,6 +161,8 @@ def main():
     # Abre o WhatsApp Web
     driver.get("https://web.whatsapp.com")
     print("Por favor, escaneie o código QR do WhatsApp Web...")
+    
+    ultima_mensagem_respondida = None
     
     try:
         # Espera o WhatsApp Web carregar verificando diferentes elementos
@@ -191,9 +193,7 @@ def main():
             print("Não foi possível detectar o carregamento do WhatsApp Web.")
             return
         
-        # Dá um tempo extra para garantir que tudo carregou
-        print("Aguardando mais alguns segundos para garantir que tudo carregou...")
-        time.sleep(10)
+        print("WhatsApp Web carregado com sucesso!")
         
         # Encontra o chat do usuário
         print("Procurando seu chat...")
@@ -255,49 +255,31 @@ def main():
             print("Chat não encontrado. Por favor, verifique se você está logado no WhatsApp Web.")
             return
         
-        ultima_mensagem = ""
-        print("Bot pronto para responder mensagens! Digite uma mensagem começando com 'GPT' no seu chat.")
-        
         while True:
             try:
-                # Obtém as últimas mensagens
-                mensagens = obter_ultimas_mensagens(driver)
+                # Obtém apenas a última mensagem
+                mensagens = obter_ultimas_mensagens(driver, num_mensagens=1)
                 
-                # Processa cada mensagem
-                for texto_msg, timestamp in mensagens:
-                    # Verifica se é uma nova mensagem e começa com "GPT"
-                    if texto_msg != ultima_mensagem and texto_msg.upper().startswith("GPT"):
-                        pergunta = texto_msg[3:].strip()  # Remove "GPT" do início
-                        print(f"Nova pergunta detectada: {pergunta}")
-                        
-                        # Obtém resposta do ChatGPT
-                        print("Obtendo resposta do ChatGPT...")
-                        resposta = obter_resposta_chatgpt(pergunta)
-                        print(f"Resposta obtida: {resposta[:100]}...")
-                        
-                        # Envia a resposta
-                        print("Enviando resposta...")
+                if mensagens and mensagens[0][0] != ultima_mensagem_respondida:
+                    mensagem = mensagens[0][0]
+                    
+                    # Verifica se a mensagem começa com "GPT"
+                    if mensagem.lower().startswith('gpt'):
+                        print(f"Nova pergunta recebida: {mensagem}")
+                        resposta = obter_resposta_chatgpt(mensagem)
                         enviar_mensagem(driver, resposta)
-                        print("Resposta enviada com sucesso!")
-                        
-                        ultima_mensagem = texto_msg
-                        # Pequena pausa para evitar processamento duplicado
-                        time.sleep(2)
-                        break
+                        ultima_mensagem_respondida = mensagem
                 
-                # Espera um pouco antes de verificar novamente
-                time.sleep(1)
+                time.sleep(1)  # Espera 1 segundo antes de verificar novamente
                 
             except Exception as e:
-                print(f"Erro ao processar mensagens: {str(e)}")
-                time.sleep(5)
+                print(f"Erro no loop principal: {str(e)}")
+                time.sleep(5)  # Espera 5 segundos antes de tentar novamente
                 
-    except TimeoutException:
-        print("Tempo excedido ao carregar o WhatsApp Web. Por favor, verifique sua conexão com a internet.")
     except Exception as e:
-        print(f"Erro inesperado: {str(e)}")
+        print(f"Erro: {str(e)}")
     finally:
-        print("\nPressione Enter para fechar o bot...")
+        print("Encerrando o bot...")
         try:
             input()
         except:
