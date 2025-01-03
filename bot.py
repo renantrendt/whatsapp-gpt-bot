@@ -17,7 +17,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def iniciar_navegador():
-    """Inicia o navegador Chrome"""
+    """Inicia o navegador Chrome mantendo a sessão"""
     options = webdriver.ChromeOptions()
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -26,9 +26,26 @@ def iniciar_navegador():
     options.add_argument('--disable-extensions')
     options.add_argument('--window-size=1920,1080')
     
-    driver = webdriver.Chrome(options=options)
-    driver.implicitly_wait(20)  # Aumenta o tempo de espera implícito
-    return driver
+    # Adiciona o diretório do usuário para manter a sessão
+    user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
+    options.add_argument(f'user-data-dir={user_data_dir}')
+    
+    # Adiciona o perfil específico
+    options.add_argument('--profile-directory=WhatsApp')
+    
+    try:
+        driver = webdriver.Chrome(options=options)
+        driver.implicitly_wait(20)
+        return driver
+    except Exception as e:
+        print(f"Erro ao iniciar o navegador: {str(e)}")
+        # Se houver erro, tenta remover o perfil e criar um novo
+        import shutil
+        if os.path.exists(user_data_dir):
+            shutil.rmtree(user_data_dir)
+        driver = webdriver.Chrome(options=options)
+        driver.implicitly_wait(20)
+        return driver
 
 def esperar_elemento(driver, selector, by=By.CSS_SELECTOR, timeout=60):
     """Espera um elemento aparecer na página"""
@@ -50,15 +67,14 @@ def obter_resposta_chatgpt(pergunta):
 def enviar_mensagem(driver, mensagem):
     """Envia uma mensagem no WhatsApp"""
     try:
-        # Lista de seletores para tentar encontrar o campo de texto
+        # Lista de seletores específicos para o campo de mensagem do WhatsApp
         input_selectors = [
-            'div[data-testid="conversation-compose-box-input"]',
-            'div[contenteditable="true"][spellcheck="true"]',
             'div[title="Digite uma mensagem"]',
-            'div[data-tab="10"]',
-            'div[role="textbox"]',
-            'p[class="selectable-text copyable-text"]',
-            'div[class="selectable-text copyable-text"]'
+            'div[data-testid="conversation-compose-box-input"]',
+            'footer div[contenteditable="true"]',
+            'div[contenteditable="true"][data-tab="10"]',
+            'div[contenteditable="true"][title="Digite uma mensagem"]',
+            'div[contenteditable="true"][data-lexical-editor="true"]'
         ]
         
         campo_texto = None
@@ -66,7 +82,7 @@ def enviar_mensagem(driver, mensagem):
             try:
                 print(f"Tentando seletor: {selector}")
                 campo_texto = driver.find_element(By.CSS_SELECTOR, selector)
-                if campo_texto:
+                if campo_texto and campo_texto.is_displayed():
                     print(f"Campo de texto encontrado com seletor: {selector}")
                     break
             except:
