@@ -25,24 +25,37 @@ def iniciar_navegador():
     options.add_argument('--disable-software-rasterizer')
     options.add_argument('--disable-extensions')
     options.add_argument('--window-size=1920,1080')
+    options.add_argument('--headless=new')  # Modo headless novo
+    options.add_argument('--disable-notifications')
+    options.add_argument('--remote-debugging-port=9222')
     
-    # Adiciona o diretório do usuário para manter a sessão
-    user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
-    options.add_argument(f'user-data-dir={user_data_dir}')
-    
-    # Adiciona o perfil específico
-    options.add_argument('--profile-directory=WhatsApp')
+    # Configurações específicas para ambiente cloud
+    options.add_argument('--disable-features=TranslateUI')
+    options.add_argument('--disable-popup-blocking')
+    options.add_argument('--blink-settings=imagesEnabled=true')
+    options.add_argument('--start-maximized')
     
     try:
-        driver = webdriver.Chrome(options=options)
+        # Em ambiente cloud, não usamos perfil local
+        if os.getenv('RAILWAY_ENVIRONMENT'):
+            driver = webdriver.Chrome(options=options)
+        else:
+            # Adiciona o diretório do usuário para manter a sessão em ambiente local
+            user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
+            options.add_argument(f'user-data-dir={user_data_dir}')
+            options.add_argument('--profile-directory=WhatsApp')
+            driver = webdriver.Chrome(options=options)
+        
         driver.implicitly_wait(20)
         return driver
     except Exception as e:
         print(f"Erro ao iniciar o navegador: {str(e)}")
-        # Se houver erro, tenta remover o perfil e criar um novo
-        import shutil
-        if os.path.exists(user_data_dir):
-            shutil.rmtree(user_data_dir)
+        if not os.getenv('RAILWAY_ENVIRONMENT'):
+            # Remove perfil apenas em ambiente local
+            import shutil
+            user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
+            if os.path.exists(user_data_dir):
+                shutil.rmtree(user_data_dir)
         driver = webdriver.Chrome(options=options)
         driver.implicitly_wait(20)
         return driver
