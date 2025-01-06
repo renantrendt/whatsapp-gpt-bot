@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from openai import OpenAI
 from dotenv import load_dotenv
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Carrega as variáveis de ambiente
 load_dotenv()
@@ -38,7 +39,8 @@ def iniciar_navegador():
     try:
         # Em ambiente cloud, não usamos perfil local
         if os.getenv('RAILWAY_ENVIRONMENT'):
-            driver = webdriver.Chrome(options=options)
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
         else:
             # Adiciona o diretório do usuário para manter a sessão em ambiente local
             user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
@@ -56,7 +58,8 @@ def iniciar_navegador():
             user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
             if os.path.exists(user_data_dir):
                 shutil.rmtree(user_data_dir)
-        driver = webdriver.Chrome(options=options)
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
         driver.implicitly_wait(20)
         return driver
 
