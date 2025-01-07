@@ -183,6 +183,22 @@ def obter_ultimas_mensagens(driver, num_mensagens=1):
         print(f"Erro ao obter mensagens: {str(e)}")
         return []
 
+def esperar_e_pegar_qr_code(driver):
+    """Espera o QR code aparecer e retorna ele como texto"""
+    try:
+        # Espera o QR code aparecer
+        qr_code = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="qrcode"]'))
+        )
+        print("\n=== QR CODE DETECTADO ===")
+        print(f"QR Code data: {qr_code.get_attribute('data-ref')}")
+        print("Escaneie o QR code acima com seu WhatsApp")
+        print("===============================\n")
+        return True
+    except Exception as e:
+        print(f"Erro ao pegar QR code: {str(e)}")
+        return False
+
 def main():
     print("Iniciando o bot...")
     
@@ -192,7 +208,12 @@ def main():
     
     # Abre o WhatsApp Web
     driver.get("https://web.whatsapp.com")
-    print("Por favor, escaneie o código QR do WhatsApp Web...")
+    print("Aguardando o WhatsApp Web carregar...")
+    
+    # Tenta pegar o QR code
+    if not esperar_e_pegar_qr_code(driver):
+        print("Não foi possível obter o QR code")
+        return
     
     ultima_mensagem_respondida = None
     
