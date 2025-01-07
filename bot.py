@@ -207,40 +207,63 @@ def esperar_e_pegar_qr_code(driver):
     """Espera o QR code aparecer e retorna ele como texto"""
     try:
         print("Aguardando QR code aparecer...")
-        # Tenta diferentes seletores para o QR code
-        seletores = [
-            'div[data-testid="qrcode"]',
-            'div[data-ref]',
-            'canvas',
-            'div[role="textbox"] canvas'
-        ]
         
-        for seletor in seletores:
-            try:
-                print(f"Tentando seletor: {seletor}")
-                qr_code = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, seletor))
-                )
-                print(f"Encontrou elemento com seletor: {seletor}")
-                
-                # Tira screenshot do elemento
-                qr_image = qr_code.screenshot_as_png
-                
-                # Faz upload para o Imgur
-                imgur_link = fazer_upload_imgur(qr_image)
-                
-                if imgur_link:
-                    print("\n=== QR CODE DISPONÍVEL ===")
-                    print(f"Escaneie o QR code neste link: {imgur_link}")
-                    print("=======================================")
-                    return True
-                    
-            except Exception as e:
-                print(f"Erro com seletor {seletor}: {str(e)}")
-                continue
+        # Espera a página carregar completamente
+        time.sleep(5)
         
-        print("Nenhum seletor funcionou para obter o QR code")
+        # Executa o script para pegar o QR code
+        print("Tentando obter QR code via JavaScript...")
+        qr_code = driver.execute_script("""
+            // Função para procurar o elemento do QR code
+            function findQRCode() {
+                // Tenta diferentes seletores
+                const selectors = [
+                    'canvas',
+                    'div[data-ref]',
+                    'div[data-testid="qrcode"]',
+                    '[data-testid="qr-code-canvas"]'
+                ];
+                
+                for (const selector of selectors) {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        console.log('Encontrou elemento:', selector);
+                        if (element.tagName.toLowerCase() === 'canvas') {
+                            return element.toDataURL('image/png');
+                        } else {
+                            const canvas = element.querySelector('canvas');
+                            if (canvas) {
+                                return canvas.toDataURL('image/png');
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            return findQRCode();
+        """)
+        
+        if qr_code:
+            print("QR code obtido com sucesso!")
+            
+            # Remove o prefixo data:image/png;base64,
+            img_data = qr_code.split(',')[1]
+            
+            # Converte base64 para bytes
+            img_bytes = base64.b64decode(img_data)
+            
+            # Faz upload para o Imgur
+            imgur_link = fazer_upload_imgur(img_bytes)
+            
+            if imgur_link:
+                print("\n=== QR CODE DISPONÍVEL ===")
+                print(f"Escaneie o QR code neste link: {imgur_link}")
+                print("=======================================")
+                return True
+            
+        print("Não foi possível obter o QR code")
         return False
+        
     except Exception as e:
         print(f"Erro ao pegar QR code: {str(e)}")
         return False
