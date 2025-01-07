@@ -10,6 +10,7 @@ from selenium.webdriver.common.keys import Keys
 from openai import OpenAI
 from dotenv import load_dotenv
 from webdriver_manager.chrome import ChromeDriverManager
+import webbrowser
 
 # Carrega as variáveis de ambiente
 load_dotenv()
@@ -199,16 +200,26 @@ def esperar_e_pegar_qr_code(driver):
         print(f"Erro ao pegar QR code: {str(e)}")
         return False
 
+def abrir_whatsapp_local():
+    """Abre o WhatsApp Web localmente para facilitar o scan do QR code"""
+    print("\nAbrindo WhatsApp Web localmente para facilitar o scan do QR code...")
+    webbrowser.open('https://web.whatsapp.com')
+
 def main():
+    """Função principal do bot"""
     print("Iniciando o bot...")
     
     # Inicia o navegador
     driver = iniciar_navegador()
     print("Navegador iniciado com sucesso!")
     
-    # Abre o WhatsApp Web
+    # Abre o WhatsApp Web no navegador headless
     driver.get("https://web.whatsapp.com")
     print("Aguardando o WhatsApp Web carregar...")
+    
+    # Se estiver no ambiente Railway, abre o WhatsApp Web localmente
+    if os.getenv('RAILWAY_ENVIRONMENT'):
+        abrir_whatsapp_local()
     
     # Tenta pegar o QR code
     if not esperar_e_pegar_qr_code(driver):
