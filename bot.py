@@ -221,21 +221,20 @@ def esperar_e_pegar_qr_code(driver):
         time.sleep(2)
         
         print("QR code encontrado, tirando screenshot...")
+        
         # Tira screenshot da página inteira
         screenshot = driver.get_screenshot_as_png()
         
-        # Faz upload para o Imgur
-        imgur_link = fazer_upload_imgur(screenshot)
+        # Salva o screenshot em um arquivo
+        qr_path = "qr_code.png"
+        with open(qr_path, "wb") as f:
+            f.write(screenshot)
         
-        if imgur_link:
-            print("\n=== QR CODE DISPONÍVEL ===")
-            print(f"Escaneie o QR code neste link: {imgur_link}")
-            print("=======================================")
-            return True
+        print("\n=== QR CODE SALVO ===")
+        print(f"QR code salvo em: {os.path.abspath(qr_path)}")
+        print("=======================================")
+        return True
             
-        print("Não foi possível fazer upload do QR code")
-        return False
-        
     except Exception as e:
         print(f"Erro ao pegar QR code: {str(e)}")
         return False
