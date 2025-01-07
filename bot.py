@@ -10,6 +10,8 @@ from selenium.webdriver.common.keys import Keys
 from openai import OpenAI
 from dotenv import load_dotenv
 from webdriver_manager.chrome import ChromeDriverManager
+import qrcode
+from io import StringIO
 import webbrowser
 
 # Carrega as variáveis de ambiente
@@ -184,6 +186,26 @@ def obter_ultimas_mensagens(driver, num_mensagens=1):
         print(f"Erro ao obter mensagens: {str(e)}")
         return []
 
+def gerar_qr_code_ascii(data):
+    """Gera um QR code em ASCII art"""
+    qr = qrcode.QRCode()
+    qr.add_data(data)
+    qr.make()
+    
+    # Criar uma string para armazenar o ASCII art
+    f = StringIO()
+    
+    # Gerar o ASCII art
+    print("\n=== ESCANEIE ESTE QR CODE COM SEU WHATSAPP ===")
+    for row in qr.get_matrix():
+        for cell in row:
+            if cell:
+                print("██", end="")
+            else:
+                print("  ", end="")
+        print()
+    print("============================================\n")
+
 def esperar_e_pegar_qr_code(driver):
     """Espera o QR code aparecer e retorna ele como texto"""
     try:
@@ -191,10 +213,9 @@ def esperar_e_pegar_qr_code(driver):
         qr_code = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="qrcode"]'))
         )
+        qr_data = qr_code.get_attribute('data-ref')
         print("\n=== QR CODE DETECTADO ===")
-        print(f"QR Code data: {qr_code.get_attribute('data-ref')}")
-        print("Escaneie o QR code acima com seu WhatsApp")
-        print("===============================\n")
+        gerar_qr_code_ascii(qr_data)
         return True
     except Exception as e:
         print(f"Erro ao pegar QR code: {str(e)}")
