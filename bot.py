@@ -13,12 +13,29 @@ from webdriver_manager.chrome import ChromeDriverManager
 import qrcode
 from io import StringIO
 import webbrowser
+import pyimgur
+from PIL import Image
+import io
+import base64
 
 # Carrega as variáveis de ambiente
 load_dotenv()
 
 # Configura o cliente OpenAI
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+# Configuração do Imgur
+IMGUR_CLIENT_ID = os.getenv('IMGUR_CLIENT_ID')
+
+def fazer_upload_imgur(imagem_bytes):
+    """Faz upload da imagem para o Imgur e retorna o link"""
+    try:
+        im = pyimgur.Imgur(IMGUR_CLIENT_ID)
+        uploaded_image = im.upload_image(imagem_bytes, title="WhatsApp QR Code")
+        return uploaded_image.link
+    except Exception as e:
+        print(f"Erro ao fazer upload para Imgur: {str(e)}")
+        return None
 
 def iniciar_navegador():
     """Inicia o navegador Chrome mantendo a sessão"""
@@ -186,26 +203,6 @@ def obter_ultimas_mensagens(driver, num_mensagens=1):
         print(f"Erro ao obter mensagens: {str(e)}")
         return []
 
-def gerar_qr_code_ascii(data):
-    """Gera um QR code em ASCII art"""
-    qr = qrcode.QRCode()
-    qr.add_data(data)
-    qr.make()
-    
-    # Criar uma string para armazenar o ASCII art
-    f = StringIO()
-    
-    # Gerar o ASCII art
-    print("\n=== ESCANEIE ESTE QR CODE COM SEU WHATSAPP ===")
-    for row in qr.get_matrix():
-        for cell in row:
-            if cell:
-                print("██", end="")
-            else:
-                print("  ", end="")
-        print()
-    print("============================================\n")
-
 def esperar_e_pegar_qr_code(driver):
     """Espera o QR code aparecer e retorna ele como texto"""
     try:
@@ -226,19 +223,18 @@ def esperar_e_pegar_qr_code(driver):
                 )
                 print(f"Encontrou elemento com seletor: {seletor}")
                 
-                if seletor == 'canvas':
-                    # Se for canvas, tenta pegar a URL da imagem
-                    qr_data = driver.execute_script("""
-                        return arguments[0].toDataURL('image/png');
-                    """, qr_code)
-                else:
-                    # Para outros elementos, tenta pegar o atributo data-ref
-                    qr_data = qr_code.get_attribute('data-ref')
+                # Tira screenshot do elemento
+                qr_image = qr_code.screenshot_as_png
                 
-                if qr_data:
-                    print("\n=== QR CODE DETECTADO ===")
-                    gerar_qr_code_ascii(qr_data)
+                # Faz upload para o Imgur
+                imgur_link = fazer_upload_imgur(qr_image)
+                
+                if imgur_link:
+                    print("\n=== QR CODE DISPONÍVEL ===")
+                    print(f"Escaneie o QR code neste link: {imgur_link}")
+                    print("=======================================")
                     return True
+                    
             except Exception as e:
                 print(f"Erro com seletor {seletor}: {str(e)}")
                 continue
