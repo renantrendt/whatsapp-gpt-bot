@@ -209,14 +209,42 @@ def gerar_qr_code_ascii(data):
 def esperar_e_pegar_qr_code(driver):
     """Espera o QR code aparecer e retorna ele como texto"""
     try:
-        # Espera o QR code aparecer
-        qr_code = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="qrcode"]'))
-        )
-        qr_data = qr_code.get_attribute('data-ref')
-        print("\n=== QR CODE DETECTADO ===")
-        gerar_qr_code_ascii(qr_data)
-        return True
+        print("Aguardando QR code aparecer...")
+        # Tenta diferentes seletores para o QR code
+        seletores = [
+            'div[data-testid="qrcode"]',
+            'div[data-ref]',
+            'canvas',
+            'div[role="textbox"] canvas'
+        ]
+        
+        for seletor in seletores:
+            try:
+                print(f"Tentando seletor: {seletor}")
+                qr_code = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, seletor))
+                )
+                print(f"Encontrou elemento com seletor: {seletor}")
+                
+                if seletor == 'canvas':
+                    # Se for canvas, tenta pegar a URL da imagem
+                    qr_data = driver.execute_script("""
+                        return arguments[0].toDataURL('image/png');
+                    """, qr_code)
+                else:
+                    # Para outros elementos, tenta pegar o atributo data-ref
+                    qr_data = qr_code.get_attribute('data-ref')
+                
+                if qr_data:
+                    print("\n=== QR CODE DETECTADO ===")
+                    gerar_qr_code_ascii(qr_data)
+                    return True
+            except Exception as e:
+                print(f"Erro com seletor {seletor}: {str(e)}")
+                continue
+        
+        print("Nenhum seletor funcionou para obter o QR code")
+        return False
     except Exception as e:
         print(f"Erro ao pegar QR code: {str(e)}")
         return False
