@@ -209,59 +209,31 @@ def esperar_e_pegar_qr_code(driver):
         print("Aguardando QR code aparecer...")
         
         # Espera a página carregar completamente
-        time.sleep(5)
+        time.sleep(10)
         
-        # Executa o script para pegar o QR code
-        print("Tentando obter QR code via JavaScript...")
-        qr_code = driver.execute_script("""
-            // Função para procurar o elemento do QR code
-            function findQRCode() {
-                // Tenta diferentes seletores
-                const selectors = [
-                    'canvas',
-                    'div[data-ref]',
-                    'div[data-testid="qrcode"]',
-                    '[data-testid="qr-code-canvas"]'
-                ];
-                
-                for (const selector of selectors) {
-                    const element = document.querySelector(selector);
-                    if (element) {
-                        console.log('Encontrou elemento:', selector);
-                        if (element.tagName.toLowerCase() === 'canvas') {
-                            return element.toDataURL('image/png');
-                        } else {
-                            const canvas = element.querySelector('canvas');
-                            if (canvas) {
-                                return canvas.toDataURL('image/png');
-                            }
-                        }
-                    }
-                }
-                return null;
-            }
-            return findQRCode();
-        """)
+        # Espera o elemento do QR code aparecer
+        print("Esperando QR code aparecer na página...")
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'canvas'))
+        )
         
-        if qr_code:
-            print("QR code obtido com sucesso!")
+        # Espera mais um pouco para garantir que o QR code está visível
+        time.sleep(2)
+        
+        print("QR code encontrado, tirando screenshot...")
+        # Tira screenshot da página inteira
+        screenshot = driver.get_screenshot_as_png()
+        
+        # Faz upload para o Imgur
+        imgur_link = fazer_upload_imgur(screenshot)
+        
+        if imgur_link:
+            print("\n=== QR CODE DISPONÍVEL ===")
+            print(f"Escaneie o QR code neste link: {imgur_link}")
+            print("=======================================")
+            return True
             
-            # Remove o prefixo data:image/png;base64,
-            img_data = qr_code.split(',')[1]
-            
-            # Converte base64 para bytes
-            img_bytes = base64.b64decode(img_data)
-            
-            # Faz upload para o Imgur
-            imgur_link = fazer_upload_imgur(img_bytes)
-            
-            if imgur_link:
-                print("\n=== QR CODE DISPONÍVEL ===")
-                print(f"Escaneie o QR code neste link: {imgur_link}")
-                print("=======================================")
-                return True
-            
-        print("Não foi possível obter o QR code")
+        print("Não foi possível fazer upload do QR code")
         return False
         
     except Exception as e:
